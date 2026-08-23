@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 
 from app.schemas.v1.admin.auth_schema import RefreshToken
+from app.helpers.helpers import generate_random_text
+from app.services.send_mail import send_reset_password_mail
 
 load_dotenv()
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
@@ -33,6 +35,7 @@ async def register_admin(
     return {
             "status": True, "message": "Admin created", "data": None
         }
+
 @router.post("/login")
 async def login_admin(
     request: Request,
@@ -91,4 +94,20 @@ async def refresh_token(request: Request,
             "access_token": access_token
         }
     }
-    
+
+@router.post("/forgot-password")
+async def forgot_password( email: str) -> dict:
+    if not email:
+        raise HTTPException(400,"Email required")
+    admin  = await admin_collection.find_one({"email": email})
+    if not admin:
+        raise HTTPException(404, "Email not found.")
+    plain_password =  generate_random_text()
+    hashed_password = hash_password(plain_password)
+    await admin_collection.find_one_and_update({"email": email}, {"$set": {"password": hashed_password}})
+    await send_reset_password_mail(email, plain_password)
+    return {
+            "status": True,
+            "message": "New password sent to mail.",
+            "data": None
+        }

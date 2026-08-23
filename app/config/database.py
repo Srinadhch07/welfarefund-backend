@@ -14,6 +14,7 @@ client = AsyncMongoClient(MONGO_URL, tz_aware=True)
 db = client[MONGO_DB]
 
 admin_collection = db["admins"]
+user_collection = db["users"]
 tokens_collections = db["tokens"]
 
 async def connect_db():
