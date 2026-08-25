@@ -6,4 +6,4 @@ pymongo[srv]
 python-multipart
 pwdlib[argon2]
 pyjwt
-boto3
+b2sdk

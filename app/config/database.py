@@ -17,6 +17,7 @@ admin_collection = db["admins"]
 user_collection = db["users"]
 tokens_collections = db["tokens"]
 payment_settings_collection = db["payment_settings"]
+payments_collection = db["payments"]
 
 async def connect_db():
     try:

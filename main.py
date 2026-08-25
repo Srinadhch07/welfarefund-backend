@@ -14,6 +14,7 @@ from app.routes.apis.v1.admin.payment_routes import  router as admin_payment_set
 
 # User routes
 from app.routes.apis.v1.user.profile_router import router as user_profile
+from app.routes.apis.v1.user.payments_routes import router as user_payments
 
 
 @asynccontextmanager
@@ -58,6 +59,10 @@ app.include_router(admin_profile, prefix="/api/admin/profile", tags = ["Admin Pr
 app.include_router(user_profile, prefix="/api/user/profile", tags = ["User Profile"])
 
 app.include_router(admin_payment_settings, prefix="/api/admin/payments-settings", tags=["Admin Payment settings"])
+
+
+# user
+app.include_router(user_payments, prefix="/api/user/payments", tags=["User Payments settings"])
 
 if __name__  == "__main__":
     import uvicorn
