@@ -5,9 +5,14 @@ from contextlib import asynccontextmanager
 from app.config.database import connect_db, close_connection
 from app.core.exceptions import http_exception_handler, global_exception_handler
 
-# Admin routes
+# Authentication routes
 from app.routes.auth.admin_auth import router as admin_auth_router
+from app.routes.auth.user_auth import router as user_auth_router
+
 from app.routes.apis.v1.admin.profile_router import router as admin_profile
+
+# User routes
+from app.routes.apis.v1.user.profile_router import router as user_profile
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
@@ -43,8 +48,12 @@ async def health():
 async def home():
     return RedirectResponse(url="/docs")
 
-app.include_router(admin_auth_router,prefix="/api/admin/register", tags = ["Admin Authentication"])
+# Authentication routes
+app.include_router(admin_auth_router,prefix="/api/admin/authentication", tags = ["Admin Authentication"])
+app.include_router(user_auth_router, prefix="/api/user/authentcation", tags=["User Authentication"])
+
 app.include_router(admin_profile, prefix="/api/admin/profile", tags = ["Admin Profile"])
+app.include_router(user_profile, prefix="/api/user/profile", tags = ["User Profile"])
 
 if __name__  == "__main__":
     import uvicorn

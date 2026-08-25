@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.config.security import decode_access_token
-from app.config.database import admin_collection
+from app.config.database import admin_collection, user_collection
 from bson import ObjectId
 
 security = HTTPBearer()
@@ -39,3 +39,35 @@ async def get_current_admin(
         raise HTTPException(400, "Admin detials not found")
 
     return admin_details
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(
+        security
+    ),
+):
+
+    token = credentials.credentials
+
+    try:
+
+        payload = decode_access_token(token)
+
+    except Exception:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired access token",
+        )
+
+    if payload.get("type") != "access":
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid access token",
+        )
+    user_id = payload.get("sub")
+    user_details = await user_collection.find_one({"_id":ObjectId(user_id)})
+    if not user_details:
+        raise HTTPException(400, "user detials not found")
+
+    return user_details

@@ -1,9 +1,10 @@
-from fastapi import APIRouter,Request, HTTPException, Form, Query
+from fastapi import APIRouter,Request, HTTPException, Form, Query, Depends
 from app.config.database import user_collection, tokens_collections
 from app.config.security import hash_password, verify_password, create_access_token, create_refresh_token
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
+from app.dependencies.auth import get_current_user
 
 from app.schemas.v1.admin.auth_schema import RefreshToken
 from app.helpers.helpers import generate_random_text, generate_otp
@@ -39,13 +40,17 @@ async def register_user(
     otp_expires = datetime.now(timezone.utc) + timedelta(minutes = 5)
     payload["otp"] = otp
     payload["otp_expires"] = otp_expires
-    user = await user_collection.find_one(payload)
+    user_payload = {
+         "email": email
+    }
+    user = await user_collection.find_one(user_payload)
     if not user:
         await user_collection.insert_one(payload)
         user = await user_collection.find_one(payload)
+    await user_collection.find_one_and_update({"email": email}, {"$set": payload})
     await send_otp_email(user, otp)
     return {
-            "status": True, "message": "user created", "data": None
+            "status": True, "message": "Please check your email", "data": {"otp": otp}
         }
 
 @router.post("/verify-otp")
@@ -54,15 +59,15 @@ async def verify_user(
     email: str,
     otp: str
 ):
-    user = await user_collection.find({"email": email})
+    user = await user_collection.find_one({"email": email})
     if not user:
         raise HTTPException(400,"No user found.")
     otp_expires = user.get("otp_expires")
     if otp_expires <= datetime.now(timezone.utc):
-        raise HTTPException("OTP is expired")
+        raise HTTPException(400,"OTP is expired")
     original_otp = user.get("otp")
     if original_otp != otp:
-        raise HTTPException("Invalid OTP.")
+        raise HTTPException(400,"Invalid OTP.")
     await user_collection.find_one_and_update({"email": email}, {"$set": {"is_verified": True}})
     return {
                 "status": True, "message": "Your acccount is verified", "data": None
@@ -74,7 +79,7 @@ async def resend_otp(request: Request,
                      ):
     if not email:
         raise HTTPException(400, "Invalid email")
-    user = await user_collection.find({"email": email})
+    user = await user_collection.find_one({"email": email})
     if not user:
         raise HTTPException(400,"No user found.")
     otp =  generate_otp()
@@ -85,7 +90,7 @@ async def resend_otp(request: Request,
     await user_collection.find_one_and_update({"email": email}, {"$set": payload})
     await send_otp_email(user, otp)
     return {
-                "status": True, "message": "user created", "data": None
+                "status": True, "message": "OTP sent successfully.", "data": None
             }
 
 @router.post("/login")
@@ -100,7 +105,7 @@ async def login_user(
     if not user:
         raise HTTPException(404, "user not found.")
     if not verify_password(password, user.get("password")):
-        raise HTTPException("Incorrect credentials, please check your email or password")
+        raise HTTPException(400,"Incorrect credentials, please check your email or password")
     access_token = create_access_token(user.get("_id"), "user")
     refresh_token = create_refresh_token()
     refresh_token_expires = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
@@ -161,5 +166,7 @@ async def forgot_password( email: str) -> dict:
     return {
             "status": True,
             "message": "New password sent to mail.",
-            "data": None
+            "data": {
+                "new password": plain_password
+            }
         }
