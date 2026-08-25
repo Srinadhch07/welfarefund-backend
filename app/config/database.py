@@ -16,6 +16,7 @@ db = client[MONGO_DB]
 admin_collection = db["admins"]
 user_collection = db["users"]
 tokens_collections = db["tokens"]
+payment_settings_collection = db["payment_settings"]
 
 async def connect_db():
     try:
