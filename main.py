@@ -16,6 +16,8 @@ from app.routes.apis.v1.admin.payment_routes import router as admin_payments
 # User routes
 from app.routes.apis.v1.user.profile_router import router as user_profile
 from app.routes.apis.v1.user.payments_routes import router as user_payments
+from app.routes.apis.v1.user.dashboard_routes import router as user_dashboard
+
 
 
 @asynccontextmanager
@@ -61,6 +63,8 @@ app.include_router(user_profile, prefix="/api/user/profile", tags = ["User Profi
 
 app.include_router(admin_payment_settings, prefix="/api/admin/payments-settings", tags=["Admin Payment settings"])
 app.include_router(admin_payments, prefix="/api/admin/payments", tags=["Admin Payments"])
+
+app.include_router(user_dashboard, prefix="/api/user/dashboard", tags=["User Dashboard"])
 
 
 # user
