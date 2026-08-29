@@ -1,65 +1,94 @@
-from fastapi import APIRouter, Depends, File, UploadFile, Form, Request
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
+from typing import Literal, Optional
+import math
+from bson import ObjectId
 
+from app.config.database import payments_collection
 from app.dependencies.auth import get_current_admin
-from app.schemas.v1.admin.payments_schema import PaymentDetails
-from app.config.database import payment_settings_collection
 from app.services.b2_storage import B2Storage
-from app.helpers.helpers import serialize_doc
+from app.helpers.helpers import serialize_doc, serialize_docs
+from app.schemas.v1.admin.payments_schema import UpdatePayment
 
 
 router = APIRouter()
 b2 = B2Storage()
 
-@router.post("/update-detials")
-async def update_details(
+@router.get("/payments-list")
+async def payments_list(
     request: Request,
-    pypayload: PaymentDetails,
-    admin: dict = Depends(get_current_admin)
+    admin: dict = Depends(get_current_admin),
+    page: int = Query(1, le=10, ge=1),
+    size: int = Query(10, le=1000, ge=1),
+    search: Optional[str] = Query(None),
+    filter: Optional[Literal["pending","approved", "rejected", "returned"]] = Query(None)
+
 ):
-    payload = pypayload.dict()
-    payment_setting = await payment_settings_collection.find_one({})
-    if not payment_setting:
-        payment_setting = await payment_settings_collection.insert_one(payload)
-    else:
-        payment_id = payment_setting.get("_id")
-        await payment_settings_collection.find_one_and_update({"_id": payment_id}, {"$set": payload})
-    return {
+    skip = (page-1)* size
+
+    query  = {}
+    if search:
+        query["$or"] = [
+            {"user_details.email": {"$regex": search,"$options": "i" }},
+            {"user_details.name": {"$regex": search,"$options": "i" } }
+        ]
+    if filter:
+        query["status"] = filter
+
+    payments = await payments_collection.find(query).skip(skip).limit(size).sort({"created_at": -1}).to_list(length=size)
+    total_payments = await payments_collection.count_documents(query)
+
+    return  {
         "status": True,
-        "message": "Payment settings are updated",
+        "message": None,
         "data": {
-            "details": serialize_doc(payload)
+            "payments": serialize_docs(payments),
+            "pagination": {
+                "size": size,
+                "total_pages": math.ceil(total_payments//size),
+                "current_page": page,
+                "total_items": total_payments
+            }
         }
     }
 
-@router.post("/update-qr")
-async def update_qr(
+@router.get("/payment-details/{payment_id}")
+async def payment_details(
     request: Request,
-    qr_file: UploadFile = File(...)
+    payment_id: str,
+    admin: dict = Depends(get_current_admin),
 ):
-    qr_code = b2.upload_file(file=qr_file, folder="welfarefund/images")
-    await payment_settings_collection.find_one_and_update({}, {"$set": {"qr_code": qr_code}})
-    return {
-        "status": True, 
-        "message": "QR code upload successfully.",
-        "data": None
-    }
-
-
-@router.get("/view-details")
-async def view_details(
-    request: Request,
-    admin: dict = Depends(get_current_admin)
-):
-    payment_detials = await payment_settings_collection.find_one({})
-    print(f'Payment details : {payment_detials}')
-    if payment_detials.get("qr_code") is not None:
-        qr_code_url = b2.generate_download_url(file_key=payment_detials.get("qr_code"))
-        payment_detials["qr_code_url"] = qr_code_url
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(400, "Invalid payment Id")
+    payment_details = await payments_collection.find_one({"_id": ObjectId(payment_id)})
+    if not payment_details:
+        raise HTTPException(404,"No details found.")
+    if payment_details.get("evidence_path"):
+        evidence_url = b2.generate_download_url(
+            file_key=payment_details.get("evidence_path")
+        )
+        payment_details["evidence_url"] = evidence_url
     return {
         "status": True,
         "message": None,
         "data": {
-            "payment_settings": serialize_doc(payment_detials)
+            "payment_details": serialize_doc(payment_details)
         }
     }
+
+@router.put("/update-payment/{payment_id}")
+async def update_payment(
+    request: Request,
+    payment_id: str,
+    pypayload: UpdatePayment,
+    admin: dict = Depends(get_current_admin)
+):
+    payload = pypayload.dict()
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(400, "Invalid payment id")
+    update_payment = await payments_collection.find_one_and_update({"_id": ObjectId(payment_id)}, {"$set": payload})
+    return {
+        "status": True,
+        "message": "Payment status updated.",
+        "data": None
+    }
+    

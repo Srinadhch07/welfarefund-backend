@@ -10,7 +10,8 @@ from app.routes.auth.admin_auth import router as admin_auth_router
 from app.routes.auth.user_auth import router as user_auth_router
 
 from app.routes.apis.v1.admin.profile_router import router as admin_profile
-from app.routes.apis.v1.admin.payment_routes import  router as admin_payment_settings
+from app.routes.apis.v1.admin.payment_setting_routes import  router as admin_payment_settings
+from app.routes.apis.v1.admin.payment_routes import router as admin_payments
 
 # User routes
 from app.routes.apis.v1.user.profile_router import router as user_profile
@@ -59,6 +60,7 @@ app.include_router(admin_profile, prefix="/api/admin/profile", tags = ["Admin Pr
 app.include_router(user_profile, prefix="/api/user/profile", tags = ["User Profile"])
 
 app.include_router(admin_payment_settings, prefix="/api/admin/payments-settings", tags=["Admin Payment settings"])
+app.include_router(admin_payments, prefix="/api/admin/payments", tags=["Admin Payments"])
 
 
 # user

@@ -6,6 +6,7 @@ from app.config.database import payment_settings_collection, payments_collection
 from app.services.b2_storage import B2Storage
 from app.helpers.helpers import serialize_doc, serialize_docs
 import math
+from datetime import datetime, timezone
 
 
 router = APIRouter()
@@ -49,7 +50,10 @@ async def payment_form(
             "_id": user.get("_id"),
             "name": user.get("name"),
             "email": user.get("email"),
-        }
+        },
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+
     }
     if evidence:
         evidence_path = b2.upload_file(

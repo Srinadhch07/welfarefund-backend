@@ -1,7 +1,6 @@
 uvicorn
 fastapi
 python-dotenv
-pymongo
 pymongo[srv]
 python-multipart
 pwdlib[argon2]
