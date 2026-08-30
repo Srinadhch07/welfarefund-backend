@@ -17,6 +17,7 @@ from app.routes.apis.v1.admin.payment_routes import router as admin_payments
 from app.routes.apis.v1.user.profile_router import router as user_profile
 from app.routes.apis.v1.user.payments_routes import router as user_payments
 from app.routes.apis.v1.user.dashboard_routes import router as user_dashboard
+from app.routes.apis.v1.user.withdrawal_request import router as user_withdrawal
 
 
 
@@ -65,6 +66,8 @@ app.include_router(admin_payment_settings, prefix="/api/admin/payments-settings"
 app.include_router(admin_payments, prefix="/api/admin/payments", tags=["Admin Payments"])
 
 app.include_router(user_dashboard, prefix="/api/user/dashboard", tags=["User Dashboard"])
+app.include_router(user_withdrawal, prefix="/api/user/withdrawals", tags=["User Withdrawals"])
+
 
 
 # user

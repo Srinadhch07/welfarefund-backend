@@ -6,9 +6,9 @@ from fastapi import HTTPException
 import json, ast
 import random
 
-def generate_random_text():
+def generate_random_text(length=5):
     chars = "abcdefghijklmnopqrstyouvxyz1234567890"
-    return ''.join(random.choice(chars) for _ in range(10))
+    return ''.join(random.choice(chars) for _ in range(length))
 
 def generate_otp(length=6):
     if length <= 0:

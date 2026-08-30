@@ -18,7 +18,7 @@ user_collection = db["users"]
 tokens_collections = db["tokens"]
 payment_settings_collection = db["payment_settings"]
 payments_collection = db["payments"]
-
+withdrawal_request_collection = db["withdrawal_requests"]
 async def connect_db():
     try:
         await client.admin.command("ping")
