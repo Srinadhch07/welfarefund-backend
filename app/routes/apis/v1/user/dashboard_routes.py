@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Form, UploadFile,File, Request, Query
 from typing import Literal
 import math
-from app.config.database import payments_collection
+from app.config.database import payments_collection, withdrawal_request_collection
 from app.helpers.helpers import serialize_doc, serialize_docs
 from app.dependencies.auth import get_current_user
 
@@ -25,39 +25,85 @@ async def view_dashboard(
             {"user_details.name":{"$regex": search, "$options": "i"}}, 
             {"user_details.email":{"$regex": search, "$options": "i"}}, 
         ]
-    payments = await payments_collection.find(query).sort({"updated_at": -1}).skip(skip).limit(size).to_list(length=size)
+    payments = await payments_collection.find(query).sort({"created_at": -1}).skip(skip).limit(size).to_list(length=size)
     total_payments = await payments_collection.count_documents(query)
+    withdrawals = await withdrawal_request_collection.find(query).sort({"created_at": -1}).skip(skip).limit(size).to_list(length=size)
 
-    pipeline = [
+    request_amount_pipeline = [
+        {
+            "$match": {
+                "status": "pending"
+            }
+        },
         {
             "$group": {
-                "_id": "$status",
+                "_id": None,
                 "total_amount": {"$sum": "$amount"}
             }
         }
     ]
-    cursor = await payments_collection.aggregate(pipeline)
+    approved_amount_pipeline = [{
+        "$match": {
+            "status": "approved"
+        }},
+        {
+        "$group": {
+            "_id": None,
+            "total_amount": { "$sum": "$amount" }
+        }
+    }]
+    rejected_amount_pipeline = [{
+            "$match": {
+                "status": "rejected"
+            }},{
+            "$group": {
+                "_id": None,
+                "total_amount": { "$sum": "$amount" }
+            }
+    }]
+    withdrals_amount_pipeline = [{
+        "$match": {
+            "status": "approved"
+        }
+    },{
+        "$group": {
+            "_id": None,
+            "total_amount": {"$sum": "$released_amount"}
+        }
+    }]
+    
+    cursor = await payments_collection.aggregate(request_amount_pipeline)
     result = await cursor.to_list(length=None)
-    status_totals = {
-        "approved": 0,
-        "pending": 0,
-        "rejected": 0,
-        "returned": 0
-    }
-    for  item in result:
-        status_totals[item["_id"]] = item["total_amount"]
+    total_pending_donation_amount = result[0]["total_amount"] if result else 0
+
+    cursor = await payments_collection.aggregate(approved_amount_pipeline)
+    result = await cursor.to_list(length=None)
+    total_approved_amount = result[0]["total_amount"] if result else 0
+    
+    cursor = await payments_collection.aggregate(rejected_amount_pipeline)
+    result = await cursor.to_list(length=None)
+    total_rejected_amount = result[0]["total_amount"] if result else 0
+
+    cursor = await withdrawal_request_collection.aggregate(withdrals_amount_pipeline)
+    result = await cursor.to_list(length=None)
+    total_withdrawal_amount = result[0]["total_amount"] if result else 0
+
+    available_amount = total_approved_amount - total_withdrawal_amount
+    
 
     return {
         "status": True,
         "message":None,
         "data": {
-            "payments": serialize_docs(payments),
             "stats": {
-                "pending_amount": status_totals.get("pending"),
-                "approved_amount": status_totals.get("approved"),
-                "rejected_amount": status_totals.get("rejected"),
-                "returned_amount": status_totals.get("returned"),
+                "pending_donation_amount": total_pending_donation_amount,
+                "approved_donation_amount": total_approved_amount,
+                "total_rejected_amount": total_rejected_amount,
+                "total_withdrawal_amount": total_withdrawal_amount,
+                "available_amount": available_amount
             },
+            "payments": serialize_docs(payments),
+            "withdrawals": serialize_docs(withdrawals),
             "pagination": {
                                 "size": size,
                                 "current_page": page,
